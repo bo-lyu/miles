@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 _ASYNC_METHOD_NODE_IP = "_get_node_ip"
+_ASYNC_METHOD_NODE_EXTERNAL_IP = "_get_node_external_ip"
 _ASYNC_METHOD_FREE_PORT_BLOCK = "_get_free_port_block"
 
 EVENT_CREATE = "create"
@@ -113,6 +114,9 @@ class FakeRayCluster:
     resolved_refs: list[str] = field(default_factory=list)
     get_timeouts: list[float | None] = field(default_factory=list)
     ctor_kwargs: list[dict[str, Any]] = field(default_factory=list)
+    # node ip -> the address off-cluster peers reach that node on; a node absent
+    # from the mapping reports None, like one whose deployment set nothing.
+    node_external_ips: dict[str, str] = field(default_factory=dict)
     _used_ports: dict[str, set[int]] = field(default_factory=dict)
     _node_ip_cycle: Any = None
 
@@ -171,6 +175,8 @@ class FakeRayCluster:
     def _compute_value(self, *, handle: FakeRayActorHandle, method: str, kwargs: dict[str, Any]) -> Any:
         if method == _ASYNC_METHOD_NODE_IP:
             return handle.node_ip
+        if method == _ASYNC_METHOD_NODE_EXTERNAL_IP:
+            return self.node_external_ips.get(handle.node_ip)
         if method == _ASYNC_METHOD_FREE_PORT_BLOCK:
             return self._alloc_port_block(
                 node_ip=handle.node_ip, start_port=kwargs["start_port"], count=kwargs["count"]

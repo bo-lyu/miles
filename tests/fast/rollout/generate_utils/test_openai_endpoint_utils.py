@@ -114,7 +114,7 @@ class TestOpenAIEndpointTracerCreate:
             return {"session_id": "session-abc"}
 
         monkeypatch.setattr("miles.rollout.generate_utils.openai_endpoint_utils.post", fake_post)
-        monkeypatch.setattr("miles.rollout.generate_utils.openai_endpoint_utils.random.choice", lambda addrs: addrs[1])
+        monkeypatch.setattr("miles.rollout.generate_utils.openai_endpoint_utils.random.randrange", lambda n: 1)
 
         args = SimpleNamespace(
             session_server_addrs=["10.0.0.1:5005", "10.0.0.2:5005"],
@@ -126,6 +126,46 @@ class TestOpenAIEndpointTracerCreate:
         assert tracer.session_server_id == "10.0.0.2:5005"
         assert tracer.base_url == "http://10.0.0.2:5005/sessions/session-abc"
         assert tracer.session_server_instance_id == "instance-b"
+
+    @pytest.mark.asyncio
+    async def test_agent_url_names_the_same_instance_from_outside_the_cluster(self, monkeypatch):
+        """The agent's URL and the driver's URL are the same instance seen from two networks:
+        one pick indexes both lists, so a session is never opened on one instance and dialed
+        on another."""
+        posted: list[str] = []
+
+        async def fake_post(url: str, payload: dict, action: str = "post"):
+            posted.append(url)
+            return {"session_id": "session-abc"}
+
+        monkeypatch.setattr("miles.rollout.generate_utils.openai_endpoint_utils.post", fake_post)
+        monkeypatch.setattr("miles.rollout.generate_utils.openai_endpoint_utils.random.randrange", lambda n: 1)
+
+        args = SimpleNamespace(
+            session_server_addrs=["10.0.0.1:5005", "10.0.0.2:5005"],
+            session_server_external_addrs=["100.64.0.1:5005", "100.64.0.2:5005"],
+        )
+        tracer = await OpenAIEndpointTracer.create(args)
+
+        # The session is opened over the cluster network, not the external one.
+        assert posted == ["http://10.0.0.2:5005/sessions"]
+        assert tracer.base_url == "http://10.0.0.2:5005/sessions/session-abc"
+        assert tracer.agent_base_url == "http://100.64.0.2:5005/sessions/session-abc"
+
+    @pytest.mark.asyncio
+    async def test_agent_url_falls_back_to_the_cluster_address(self, monkeypatch):
+        """Without an agent list -- no external address configured, or args from before it
+        existed -- the agent dials the same address the driver uses."""
+
+        async def fake_post(url: str, payload: dict, action: str = "post"):
+            return {"session_id": "session-abc"}
+
+        monkeypatch.setattr("miles.rollout.generate_utils.openai_endpoint_utils.post", fake_post)
+
+        args = SimpleNamespace(session_server_addrs=["10.0.0.1:5005"])
+        tracer = await OpenAIEndpointTracer.create(args)
+
+        assert tracer.agent_base_url == tracer.base_url
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("addrs_kwargs", [{}, {"session_server_addrs": None}, {"session_server_addrs": []}])

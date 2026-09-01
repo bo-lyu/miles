@@ -28,10 +28,14 @@ class OpenAIEndpointTracer:
         session_id: str,
         session_server_instance_id: str | None = None,
         samples_wire_fields: tuple[str, ...] = COMPUTED_FIELDS,
+        agent_router_url: str | None = None,
     ):
         self.router_url = router_url
         self.session_id = session_id
         self.base_url = f"{router_url}/sessions/{session_id}"
+        # What the agent function hands its agent, which may run outside the cluster.
+        # The driver's own calls stay on base_url and off any external path.
+        self.agent_base_url = f"{agent_router_url or router_url}/sessions/{session_id}"
         self.session_server_instance_id = session_server_instance_id
         # The samples-wire allowlist must match the server's encode: v1 default,
         # extended under --use-session-server v2 (create() selects from args;
@@ -50,9 +54,15 @@ class OpenAIEndpointTracer:
             raise RuntimeError(
                 "session_server_addrs is not set. Pass --use-session-server to start the session server."
             )
+        # Positionally aligned with session_addrs; absent before the driver
+        # records it, and then the cluster address serves the agent too.
+        external_addrs = getattr(args, "session_server_external_addrs", None) or session_addrs
+        assert len(external_addrs) == len(session_addrs), f"{external_addrs=} misaligned with {session_addrs=}"
         # The only routing decision in the system: pick the owning instance once
-        # per session; every later touch of the session reuses this URL.
-        session_addr = random.choice(session_addrs)
+        # per session; every later touch of the session reuses this URL. Both URLs
+        # name that one instance, so the agent and the driver never split across two.
+        instance_index = random.randrange(len(session_addrs))
+        session_addr = session_addrs[instance_index]
         session_url = f"http://{session_addr}"
         instance_ids = getattr(args, "session_server_instance_ids", None) or {}
         session_server_instance_id = instance_ids.get(session_addr)
@@ -64,6 +74,7 @@ class OpenAIEndpointTracer:
             session_id=session_id,
             session_server_instance_id=session_server_instance_id,
             samples_wire_fields=COMPUTED_FIELDS_V2 if use_v2 else COMPUTED_FIELDS,
+            agent_router_url=f"http://{external_addrs[instance_index]}",
         )
 
     async def collect_samples(

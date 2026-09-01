@@ -152,6 +152,7 @@ class _CommandActorManager(_BaseActorManager[CommandWorkerSpec]):
         self.self_addrs = {}
 
         node_ip = await self.actor_handle._get_node_ip.remote()
+        external_ip = await self.actor_handle._get_node_external_ip.remote()
         for port_info in self.spec.port_infos:
             port = (
                 self.manager_ref.port_allocator.alloc(
@@ -160,7 +161,11 @@ class _CommandActorManager(_BaseActorManager[CommandWorkerSpec]):
                 if port_info.allow_dynamic
                 else port_info.static_port + (self.cell_index if port_info.offset_by_cell else 0)
             )
-            self.self_addrs[port_info.name] = HostAndPort(host=_wrap_ipv6(node_ip), port=port)
+            self.self_addrs[port_info.name] = HostAndPort(
+                host=_wrap_ipv6(node_ip),
+                port=port,
+                external_host=_wrap_ipv6(external_ip) if external_ip else None,
+            )
 
     async def post_setup(self) -> None:
         ctx = LaunchCommandContext(

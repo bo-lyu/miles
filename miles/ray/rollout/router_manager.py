@@ -47,7 +47,11 @@ async def wait_session_server_ready(args):
     ]
     # The canonical driver-side value; rollout code picks from this list. Instances may sit on
     # different hosts, so each one is addressed in full rather than by a port under a shared ip.
-    args.session_server_addrs = [f"{x.host}:{x.port}" for x in addrs]
+    args.session_server_addrs = [x.netloc for x in addrs]
+    # The same instances as reached from outside the cluster, positionally aligned
+    # with the list above. Equal to it unless the deployment gave the nodes an
+    # external address.
+    args.session_server_external_addrs = [x.external_netloc for x in addrs]
 
     # Spawn all children before waiting on any: each child pays the ~10s
     # transformers import, so N servers start in ~one import of wall-time.
@@ -59,4 +63,7 @@ async def wait_session_server_ready(args):
     args.session_server_instance_ids = instance_ids
     for addr in addrs:
         wait_tcp_ready(addr.host, addr.port, timeout=_SERVER_READY_TIMEOUT_SECS)
-    logger.info(f"Session servers ready at {args.session_server_addrs} ({len(addrs)} instances)")
+    logger.info(
+        f"Session servers ready at {args.session_server_addrs} ({len(addrs)} instances), "
+        f"externally at {args.session_server_external_addrs}"
+    )

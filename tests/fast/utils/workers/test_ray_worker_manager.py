@@ -215,6 +215,23 @@ class TestInitAllocatesPorts:
 
         assert manager.get_worker_addr("router-0-0").host == "[2001:db8::7]"
 
+    async def test_each_worker_carries_the_external_address_its_own_node_reports(
+        self, fake_ray_cluster: FakeRayCluster
+    ):
+        """The external address is probed on the worker's node, so two workers on two
+        nodes advertise two different values, and a node that reports none advertises
+        its placed address for both views."""
+        fake_ray_cluster.use_node_ips("10.0.0.1", "10.0.0.2", "10.0.0.3")
+        fake_ray_cluster.node_external_ips = {"10.0.0.1": "100.64.0.1", "10.0.0.2": "100.64.0.2"}
+        manager = await _launch([_make_spec("engine", num_cells=3)])
+
+        first, second, third = (manager.get_worker_addr(f"engine-{i}-0") for i in range(3))
+        assert (first.external_host, second.external_host) == ("100.64.0.1", "100.64.0.2")
+        assert first.external_netloc == f"100.64.0.1:{first.port}"
+        # No external ip on the third node: the placed address serves both views.
+        assert third.external_host is None
+        assert third.external_netloc == f"10.0.0.3:{third.port}"
+
 
 class TestPortAllocationDetails:
     async def test_the_allocator_probes_the_workers_own_actor_on_its_own_node(self, fake_ray_cluster: FakeRayCluster):

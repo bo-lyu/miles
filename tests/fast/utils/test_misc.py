@@ -47,6 +47,17 @@ class TestNodeProbeMixin:
         node_ip = NodeProbeMixin._get_node_ip()
         assert isinstance(node_ip, str) and node_ip
 
+    def test_get_node_external_ip_is_absent_until_the_node_sets_it(self, monkeypatch):
+        """A node without the env var reports None, which keeps its placed address in use."""
+        monkeypatch.delenv("MILES_NODE_EXTERNAL_IP", raising=False)
+        assert NodeProbeMixin._get_node_external_ip() is None
+
+        monkeypatch.setenv("MILES_NODE_EXTERNAL_IP", "")
+        assert NodeProbeMixin._get_node_external_ip() is None
+
+        monkeypatch.setenv("MILES_NODE_EXTERNAL_IP", "100.64.0.7")
+        assert NodeProbeMixin._get_node_external_ip() == "100.64.0.7"
+
     def test_get_free_port_block_returns_bindable_consecutive_ports(self) -> None:
         """A block request returns five ports that can be bound simultaneously."""
         candidate_start: int = get_free_port(start_port=15000, consecutive=10)

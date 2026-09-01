@@ -15,7 +15,7 @@ import logging
 import os
 import socket
 from typing import Any
-from urllib.parse import urlparse, urlsplit, urlunparse
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -80,13 +80,9 @@ async def run(
         os.getenv("SWE_AGENT_MODEL_NAME", "model"),
     )
 
+    # base_url already names the session server as this sandbox reaches it; the
+    # driver resolved that when it opened the session.
     session_url = f"{base_url}/v1"
-    external_host = os.getenv("MILES_ROUTER_EXTERNAL_HOST")
-    if external_host:
-        parsed = urlparse(session_url)
-        port = parsed.port
-        netloc = f"{external_host}:{port}" if port else external_host
-        session_url = urlunparse(parsed._replace(netloc=netloc))
 
     request: dict[str, Any] = {
         **metadata,
@@ -99,12 +95,10 @@ async def run(
     if max_seq_len is not None:
         request["max_seq_len"] = int(max_seq_len)
 
-    session_server_id = metadata.get("session_server_id")
-    if session_server_id is not None:
-        if external_host:
-            port = urlsplit(f"http://{session_server_id}").port
-            session_server_id = f"{external_host}:{port}"
-        request["session_server_id"] = session_server_id
+    if metadata.get("session_server_id") is not None:
+        # metadata's id names the owning instance on the cluster network. The agent
+        # server sees that instance the way base_url does, so name it the same way.
+        request["session_server_id"] = urlsplit(session_url).netloc
 
     session_server_instance_id = metadata.get("session_server_instance_id")
     if session_server_instance_id is not None:

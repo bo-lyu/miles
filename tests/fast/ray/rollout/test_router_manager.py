@@ -77,6 +77,7 @@ class TestWaitSessionServerReady:
 
         assert requested == ["session-server-0-0", "session-server-1-0"]
         assert args.session_server_addrs == ["10.0.0.9:5005", "10.0.0.9:5006"]
+        assert args.session_server_external_addrs == args.session_server_addrs
         assert args.session_server_instance_ids == {
             "10.0.0.9:5005": "00112233445566aa-0",
             "10.0.0.9:5006": "00112233445566aa-1",
@@ -114,8 +115,54 @@ class TestWaitSessionServerReady:
         await wait_session_server_ready(args)
 
         assert args.session_server_addrs == ["10.0.0.1:5005", "10.0.0.2:5005"]
+        assert args.session_server_external_addrs == args.session_server_addrs
         assert args.session_server_instance_ids == {
             "10.0.0.1:5005": "00112233445566aa-0",
             "10.0.0.2:5005": "00112233445566aa-1",
         }
+
+    async def test_external_addrs_carry_each_host_external_address(self, monkeypatch):
+        """Every instance keeps its own external host, so an off-cluster agent reaches the
+        one instance that owns its session rather than whichever one an external address
+        shared by all of them happens to point at."""
+
+        class _FakeProvider:
+            def __init__(self):
+                self._counter = 0
+
+            async def get_addr(self, worker_name: str) -> HostAndPort:
+                self._counter += 1
+                return HostAndPort(
+                    host=f"10.0.0.{self._counter}",
+                    port=5005,
+                    external_host=f"100.64.0.{self._counter}",
+                )
+
+        monkeypatch.setattr(
+            "miles.ray.rollout.router_manager.RayWorkerProvider",
+            SimpleNamespace(create=lambda: _FakeProvider()),
+        )
+        waited: list[tuple[str, int]] = []
+        monkeypatch.setattr(
+            "miles.ray.rollout.router_manager.wait_tcp_ready",
+            lambda host, port, timeout: waited.append((host, port)),
+        )
+
+        args = make_args(
+            use_session_server=True,
+            hf_checkpoint="/fake/model",
+            num_session_servers=2,
+            run_uuid="00112233445566aa",
+        )
+        await wait_session_server_ready(args)
+
+        assert args.session_server_addrs == ["10.0.0.1:5005", "10.0.0.2:5005"]
+        assert args.session_server_external_addrs == ["100.64.0.1:5005", "100.64.0.2:5005"]
+        # Instance ids stay keyed by the cluster address the driver picks from.
+        assert args.session_server_instance_ids == {
+            "10.0.0.1:5005": "00112233445566aa-0",
+            "10.0.0.2:5005": "00112233445566aa-1",
+        }
+        # Readiness is the driver's own probe, so it runs against the cluster addresses.
+        assert waited == [("10.0.0.1", 5005), ("10.0.0.2", 5005)]
         assert waited == [("10.0.0.1", 5005), ("10.0.0.2", 5005)]

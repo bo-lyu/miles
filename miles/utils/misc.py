@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from collections.abc import Sequence
 from typing import Any
 
@@ -64,6 +65,21 @@ def get_current_node_ip():
     return address
 
 
+MILES_NODE_EXTERNAL_IP_ENV = "MILES_NODE_EXTERNAL_IP"
+
+
+def get_node_external_ip() -> str | None:
+    """The address off-cluster peers reach this node on (a DNS name also works),
+    or None when its own address already routes from there.
+
+    The deployment supplies this per node -- a tailscale sidecar or an init
+    container writing the interface it joined. Passing it through ray's
+    runtime_env instead would give every node one shared value, which only
+    addresses the right instance while all of them sit on one host.
+    """
+    return os.environ.get(MILES_NODE_EXTERNAL_IP_ENV) or None
+
+
 def get_free_port(start_port=10000, consecutive=1):
     # find the port where port, port + 1, port + 2, ... port + consecutive - 1 are all available
     port = start_port
@@ -88,6 +104,10 @@ class NodeProbeMixin:
     @staticmethod
     def _get_node_ip() -> str:
         return get_current_node_ip()
+
+    @staticmethod
+    def _get_node_external_ip() -> str | None:
+        return get_node_external_ip()
 
     @staticmethod
     def _get_free_port_block(*, start_port: int, count: int) -> int:
