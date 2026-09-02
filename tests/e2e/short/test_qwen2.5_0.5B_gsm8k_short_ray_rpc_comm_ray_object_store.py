@@ -5,7 +5,7 @@ from types import ModuleType
 
 from tests.ci.ci_register import register_cuda_ci
 
-register_cuda_ci(est_time=450, suite="stage-c-8-gpu-h100", labels=["short", "mooncake", "rpc-comm"])
+register_cuda_ci(est_time=450, suite="stage-c-8-gpu-h100", labels=["short", "rpc-comm"])
 
 
 def _load_base_test() -> ModuleType:
@@ -23,6 +23,6 @@ if __name__ == "__main__":
         os.environ.pop(proxy_var, None)
     base.execute(
         comm_backend=base.WorkerCommBackend.RPC,
-        object_store_backend=base.ObjectStoreBackend.MOONCAKE,
+        object_store_backend=base.ObjectStoreBackend.RAY,
         test_file=__file__,
     )
