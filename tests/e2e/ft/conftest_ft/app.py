@@ -80,24 +80,30 @@ def _release_comparison_side(request: RunSideRequest) -> None:
         return
 
     assert config.namespace, "A kubernetes comparison side needs a namespace before its release can be removed"
-    release = ReleaseName(
-        run_id=config.run_id,
-        deploy_component=config.deploy_component,
-        deploy_instance_id=config.deploy_instance_id,
-    ).serialize()
+    remove_release_and_wait(
+        release=ReleaseName(
+            run_id=config.run_id,
+            deploy_component=config.deploy_component,
+            deploy_instance_id=config.deploy_instance_id,
+        ).serialize(),
+        namespace=config.namespace,
+    )
+
+
+def remove_release_and_wait(*, release: str, namespace: str) -> None:
     selector = Kubectl.release_selector(release)
     deadline = time.monotonic() + _RELEASE_TIMEOUT_SECONDS
 
-    Helm.uninstall_if_present(release=release, namespace=config.namespace)
+    Helm.uninstall_if_present(release=release, namespace=namespace)
     while True:
-        manifest = Helm.get_manifest(release, config.namespace)
-        pods = selected_pods(config.namespace, selector)
+        manifest = Helm.get_manifest(release, namespace)
+        pods = selected_pods(namespace, selector)
         if manifest is None and not pods:
             return
         if time.monotonic() >= deadline:
             pod_names = sorted(pod.metadata.name for pod in pods)
             raise TimeoutError(
-                f"Timed out removing comparison release {release!r} from namespace {config.namespace!r}; "
+                f"Timed out removing release {release!r} from namespace {namespace!r}; "
                 f"release_exists={manifest is not None}, pods={pod_names}"
             )
         time.sleep(_RELEASE_POLL_INTERVAL_SECONDS)

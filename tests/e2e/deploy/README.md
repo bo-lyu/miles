@@ -34,6 +34,8 @@ Steps: 3 rollouts
    - installing PRIMARY blocks until the run ends
    - addresses from the example's address_book; ordering, shared run uuid and uninstall from
      conftest_deploy/split/split_deployment.py
+   - whatever installed the releases removes them all when the run ends, PRIMARY included, and
+     waits for their pods, rather than leaving PRIMARY to the teardown it schedules for itself
 3. Compare: dumps and metrics bitwise; engine checksums identical per (rollout, engine); engine
    count; weights moved; nonzero gradients >= 2 rollouts
 ```
