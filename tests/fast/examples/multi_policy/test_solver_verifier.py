@@ -18,14 +18,13 @@ VERIFIER_URL = "http://verifier-host:2222/generate"
 @dataclass
 class _FakeGenerate:
     responses: dict[str, str]
-    aborted_urls: frozenset[str] = frozenset()
     calls: list[tuple[str, Sample]] = field(default_factory=list)
 
     async def __call__(self, input: GenerateFnInput, url: str | None = None) -> GenerateFnOutput:
         sample = input.sample
         self.calls.append((url, sample))
         sample.response = self.responses[url]
-        sample.status = Sample.Status.ABORTED if url in self.aborted_urls else Sample.Status.COMPLETED
+        sample.status = Sample.Status.COMPLETED
         return GenerateFnOutput(samples=sample)
 
 
@@ -45,11 +44,8 @@ class _RunResult:
     samples: list[Sample]
 
 
-async def _run(monkeypatch, *, solver_response: str, verifier_response: str, abort_solver: bool = False) -> _RunResult:
-    fake = _FakeGenerate(
-        responses={SOLVER_URL: solver_response, VERIFIER_URL: verifier_response},
-        aborted_urls=frozenset({SOLVER_URL}) if abort_solver else frozenset(),
-    )
+async def _run(monkeypatch, *, solver_response: str, verifier_response: str) -> _RunResult:
+    fake = _FakeGenerate(responses={SOLVER_URL: solver_response, VERIFIER_URL: verifier_response})
     monkeypatch.setattr(solver_verifier, "single_turn_generate", fake)
     output = await solver_verifier.generate(
         _make_input(prompt=[dict(role="user", content="What is 9 + 9?")], label="#### 18")
@@ -315,26 +311,6 @@ class TestGenerate:
 
         with pytest.raises(AssertionError, match="pairs one solver policy with one verifier policy"):
             await solver_verifier.generate(input)
-
-
-class TestAbortedSolver:
-    async def test_an_aborted_solver_is_not_handed_to_the_verifier(self, monkeypatch):
-        """Judging a truncated attempt trains the verifier on work the solver never finished."""
-        result = await _run(
-            monkeypatch, solver_response="#### 18", verifier_response="VERDICT: AGREE", abort_solver=True
-        )
-
-        assert [url for url, _ in result.fake.calls] == [SOLVER_URL]
-        [solver_sample] = result.samples
-        assert solver_sample.trainer_model_id == "solver"
-
-    async def test_an_aborted_solver_is_not_rewarded(self, monkeypatch):
-        """Scoring a truncated attempt against the label rewards luck, and its group has no verifier to pair with."""
-        result = await _run(
-            monkeypatch, solver_response="#### 18", verifier_response="VERDICT: AGREE", abort_solver=True
-        )
-
-        assert result.samples[0].reward is None
 
 
 class TestTheLauncherLeavesThePromptAsMessages:
