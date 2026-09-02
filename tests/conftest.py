@@ -64,9 +64,10 @@ class _StallDumper:
         self._config = config
         self._interval_seconds = interval_seconds
         self._nodeid: str = ""
+        self._uncaptured_stderr_fd: int = _duplicate_uncaptured_stderr(config)
 
         signal.signal(signal.SIGALRM, self._dump)
-        faulthandler.register(signal.SIGTERM, all_threads=True, chain=True)
+        faulthandler.register(signal.SIGTERM, file=self._uncaptured_stderr_fd, all_threads=True, chain=True)
 
     def arm(self, *, nodeid: str) -> None:
         self._nodeid = nodeid
@@ -105,6 +106,17 @@ class _StallDumper:
             for frame in task.get_stack(limit=30):
                 print(f"        {frame.f_code.co_filename}:{frame.f_lineno} in {frame.f_code.co_name}", file=out)
         print("", file=out, flush=True)
+
+
+def _duplicate_uncaptured_stderr(config: pytest.Config) -> int:
+    if (capture_manager := config.pluginmanager.getplugin("capturemanager")) is None:
+        return os.dup(2)
+
+    capture_manager.suspend_global_capture(in_=False)
+    try:
+        return os.dup(2)
+    finally:
+        capture_manager.resume_global_capture()
 
 
 _stall_dumper: _StallDumper | None = None
