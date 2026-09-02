@@ -13,7 +13,12 @@ import yaml
 from miles.utils.file_arg_utils import resolve_file_arg
 from miles.utils.pydantic_utils import FrozenStrictBaseModel
 from miles.utils.workers.argv_utils import coerce_dict_to_args, declared_arg_dests
-from miles.utils.workers.naming import POOL_NAME_MAX_LENGTH, TRAINER_CONTROLLER_POOL_ID_PREFIX, TRAINER_ID_MAX_LENGTH
+from miles.utils.workers.naming import (
+    DNS_LABEL_PATTERN,
+    POOL_NAME_MAX_LENGTH,
+    TRAINER_CONTROLLER_POOL_ID_PREFIX,
+    TRAINER_ID_MAX_LENGTH,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +30,7 @@ CRITIC_ROLE = "critic"
 DEFAULT_MODEL_ROLE = ACTOR_ROLE
 TrainerRole = Literal["actor", "critic"]
 TRAINER_CHECKPOINT_DIRNAME = "trainers"
-MODEL_ID_PATTERN = re.compile(r"\A[a-z0-9]([a-z0-9-]*[a-z0-9])?\Z")
+MODEL_ID_PATTERN = re.compile(rf"\A{DNS_LABEL_PATTERN}\Z")
 RESERVED_MODEL_ID = "eval"
 
 PER_POLICY_ARGS: frozenset[str] = frozenset(

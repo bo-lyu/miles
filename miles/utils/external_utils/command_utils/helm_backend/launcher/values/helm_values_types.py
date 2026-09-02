@@ -16,12 +16,18 @@ from miles.utils.workers.env_vars import (
     POD_INDEX_ENV_VAR,
     RELEASE_ENV_VAR,
 )
-from miles.utils.workers.naming import POOL_NAME_MAX_LENGTH, PORT_NAME_MAX_LENGTH, PORT_NAME_PATTERN
+from miles.utils.workers.naming import (
+    DNS_LABEL_PATTERN,
+    DNS_SUBDOMAIN_PATTERN,
+    POOL_NAME_MAX_LENGTH,
+    PORT_NAME_MAX_LENGTH,
+    PORT_NAME_PATTERN,
+)
 
-_DNS_LABEL = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
-_OPTIONAL_DNS_LABEL = r"^([a-z0-9]([-a-z0-9]*[a-z0-9])?)?$"
-_DNS_SUBDOMAIN = r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
-_OPTIONAL_DNS_SUBDOMAIN = r"^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?$"
+_DNS_LABEL = rf"^{DNS_LABEL_PATTERN}$"
+_OPTIONAL_DNS_LABEL = rf"^({DNS_LABEL_PATTERN})?$"
+_DNS_SUBDOMAIN = rf"^{DNS_SUBDOMAIN_PATTERN}$"
+_OPTIONAL_DNS_SUBDOMAIN = rf"^({DNS_SUBDOMAIN_PATTERN})?$"
 
 _NO_PARENT_TRAVERSAL = {"not": {"pattern": r"(^|/)\.\.(/|$)"}}
 _PLATFORM_OWNED_ENV_VARS = [

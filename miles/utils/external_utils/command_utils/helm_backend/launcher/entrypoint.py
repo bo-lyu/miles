@@ -58,6 +58,7 @@ from miles.utils.external_utils.model_args_utils import shell_safe_model_args
 from miles.utils.file_utils import atomic_write_text
 from miles.utils.object_store import ObjectStoreBackend
 from miles.utils.run_uuid import generate_run_uuid, validate_run_uuid
+from miles.utils.workers.naming import DNS_LABEL_PATTERN
 from miles.utils.workers.serving.utils import override_argv, override_env
 from miles.utils.workers.types import ClusterBackend, DeployComponent
 from miles.utils.workers.worker_provider.kubernetes.helm.naming import static_cell_addrs
@@ -68,7 +69,7 @@ logger = logging.getLogger(__name__)
 _RUN_UUID_FLAG = "--run-uuid"
 _ENV_REPORT_FLAG = "--env-report"
 _WANDB_RUN_ID_FLAG = "--wandb-run-id"
-_RUN_ID_PATTERN = re.compile(r"[a-z0-9]([-a-z0-9]*[a-z0-9])?")
+_RUN_ID_PATTERN = re.compile(DNS_LABEL_PATTERN)
 
 
 class RunExitedError(SystemExit):

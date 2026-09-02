@@ -1,6 +1,8 @@
 import re
 from typing import NamedTuple
 
+DNS_LABEL_PATTERN: str = r"[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+DNS_SUBDOMAIN_PATTERN: str = rf"{DNS_LABEL_PATTERN}(\.{DNS_LABEL_PATTERN})*"
 NAME_INDEX_PAD_WIDTH: int = 5
 _NAME_INDEX_LIMIT: int = 10**NAME_INDEX_PAD_WIDTH
 POOL_NAME_MAX_LENGTH = 40
