@@ -1018,3 +1018,22 @@ class TestDetectHardware:
             for machine in ("x86_64", "aarch64"):
                 _fake_torch(monkeypatch, capability=capability, machine=machine)
                 assert command_utils.detect_hardware() in command_utils.NUM_GPUS_OF_HARDWARE
+
+
+class TestFromEnv:
+    def test_the_environment_fills_the_launcher_fields(self, monkeypatch):
+        """A workbench exports MILES_SCRIPT_* and a config built from the environment reads them."""
+        monkeypatch.setenv("MILES_SCRIPT_CLUSTER_BACKEND", "kubernetes")
+        monkeypatch.setenv("MILES_SCRIPT_NAMESPACE", "miles-someones-namespace")
+
+        config = command_utils.ExecuteTrainConfig.from_env(output_dir="/tmp/out")
+
+        assert config.cluster_backend is base_backend.ClusterBackend.KUBERNETES
+        assert config.namespace == "miles-someones-namespace"
+        assert config.output_dir == "/tmp/out"
+
+    def test_keyword_arguments_override_the_environment(self, monkeypatch):
+        """A recipe that names a launcher field wins over the environment."""
+        monkeypatch.setenv("MILES_SCRIPT_NAMESPACE", "miles-someones-namespace")
+
+        assert command_utils.ExecuteTrainConfig.from_env(namespace="other").namespace == "other"

@@ -5,10 +5,10 @@ import os
 import shlex
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import partial
 from pathlib import Path
-from typing import get_args
+from typing import Any, get_args
 
 from miles.utils.external_utils.command_utils.common import (
     ArgvManipulator,
@@ -33,6 +33,10 @@ class CommandUtilConfig:
     namespace: str = ""
     helm_values: tuple[str, ...] = ()
     ci_run: bool = False
+
+    @classmethod
+    def from_env(cls, **kwargs: Any) -> CommandUtilConfig:
+        return replace(dataclass_from_env(cls), **kwargs)
 
     def create_backend(self) -> BaseCommandBackend:
         match self.cluster_backend:
