@@ -83,6 +83,12 @@ def session_verify_extras(parser: argparse.ArgumentParser) -> argparse.ArgumentP
     session-verify invariants as parser defaults — user CLI still overrides
     these via the canonical miles flags.
     """
+    # The wrapper performs the first parse before execute_train discovers the
+    # custom generate function. Register its two generate-owned options here as
+    # well so the documented CLI can carry them into the second parse.
+    from miles.utils.test_utils.session_verify_agent import add_session_verify_arguments
+
+    add_session_verify_arguments(parser)
     parser.add_argument(
         "--assistant-text-threshold",
         type=float,
@@ -160,10 +166,14 @@ def namespace_to_train_args(ns: argparse.Namespace) -> str:
         f"--actor-num-gpus-per-node {ns.actor_num_gpus_per_node}",
         f"--train-backend {ns.train_backend}",
     ]
+    if getattr(ns, "rollout_num_gpus", None) is not None:
+        parts.append(f"--rollout-num-gpus {ns.rollout_num_gpus}")
     if ns.sglang_tool_call_parser:
         parts.append(f"--sglang-tool-call-parser {ns.sglang_tool_call_parser}")
     if ns.sglang_context_length is not None:
         parts.append(f"--sglang-context-length {ns.sglang_context_length}")
+    if getattr(ns, "sglang_cuda_graph_max_bs_decode", None) is not None:
+        parts.append(f"--sglang-cuda-graph-max-bs-decode {ns.sglang_cuda_graph_max_bs_decode}")
     if ns.sglang_cuda_graph_backend_prefill is not None:
         parts.append(f"--sglang-cuda-graph-backend-prefill {ns.sglang_cuda_graph_backend_prefill}")
     # DeepSeek V3.2 (and other NSA/MoE archs) requires expert-parallel > 1 in

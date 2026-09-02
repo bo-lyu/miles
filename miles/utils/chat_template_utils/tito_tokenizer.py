@@ -327,7 +327,7 @@ class QwenNextTITOTokenizer(Qwen3TITOTokenizer):
 
 
 # ---------------------------------------------------------------------------
-# GLM 4.7 implementation
+# GLM family implementation
 # ---------------------------------------------------------------------------
 
 
@@ -384,6 +384,24 @@ class GLM47TITOTokenizer(TITOTokenizer):
         if prefix and prefix[-1] in self._ambiguous_boundary_ids:
             prefix = prefix[:-1]
         return prefix + incremental
+
+
+class GLM51TITOTokenizer(GLM47TITOTokenizer):
+    """GLM-5.1 fixed renderer with the shared GLM token boundary."""
+
+    FIXED_TEMPLATE = FixedTemplate(
+        template="glm5.1_fixed.jinja",
+        extra_kwargs={"clear_thinking": False},
+    )
+
+
+class GLM53TITOTokenizer(GLM47TITOTokenizer):
+    """GLM-5.3 native text renderer with the shared GLM token boundary."""
+
+    FIXED_TEMPLATE = FixedTemplate(
+        template=None,
+        extra_kwargs={"clear_thinking": False, "enable_thinking": True},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -779,6 +797,8 @@ class TITOTokenizerType(StrEnum):
     QWEN36 = "qwen36"
     QWENNEXT = "qwennext"
     GLM47 = "glm47"
+    GLM51 = "glm51"
+    GLM53 = "glm53"
     NEMOTRON3 = "nemotron3"
     KIMI25 = "kimi25"
     KIMI26 = "kimi26"
@@ -804,6 +824,10 @@ class TITOTokenizerType(StrEnum):
                 return QwenNextTITOTokenizer
             case cls.GLM47:
                 return GLM47TITOTokenizer
+            case cls.GLM51:
+                return GLM51TITOTokenizer
+            case cls.GLM53:
+                return GLM53TITOTokenizer
             case cls.NEMOTRON3:
                 return Nemotron3TITOTokenizer
             case cls.KIMI25:
