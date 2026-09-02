@@ -156,8 +156,8 @@ def _config_for_comparison_side(
 ) -> command_utils.ExecuteTrainConfig:
     assert side in (BASELINE_SIDE, TARGET_SIDE), f"unknown comparison side {side!r}"
     suffix = f"-{side}"
-    parent_run_id = config.run_id[: RUN_ID_MAX_LENGTH - len(suffix)]
-    return dataclasses.replace(config, run_id=f"{parent_run_id}{suffix}")
+    assert len(config.run_id) + len(suffix) <= RUN_ID_MAX_LENGTH, "run id too long for a side suffix"
+    return dataclasses.replace(config, run_id=f"{config.run_id}{suffix}")
 
 
 # ========================== train argument building ===========================

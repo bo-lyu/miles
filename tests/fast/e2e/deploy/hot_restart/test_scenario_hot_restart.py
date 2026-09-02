@@ -54,17 +54,22 @@ class TestModes:
 
 
 class TestComparisonReleaseIsolation:
-    def test_the_two_sides_get_distinct_releases_even_when_the_parent_run_id_fills_its_budget(self):
+    def test_the_two_sides_get_distinct_releases_from_the_parent_run_id(self):
         """A target command must never upgrade the baseline release whose workload command differs."""
-        config = ExecuteTrainConfig(run_id="a" * RUN_ID_MAX_LENGTH)
+        config = ExecuteTrainConfig(run_id="demo")
 
         baseline = scenario._config_for_comparison_side(BASELINE_SIDE, config)
         target = scenario._config_for_comparison_side(TARGET_SIDE, config)
 
-        assert baseline.run_id != target.run_id
-        assert len(baseline.run_id) <= RUN_ID_MAX_LENGTH
-        assert len(target.run_id) <= RUN_ID_MAX_LENGTH
-        assert config.run_id == "a" * RUN_ID_MAX_LENGTH
+        assert baseline.run_id == f"demo-{BASELINE_SIDE}"
+        assert target.run_id == f"demo-{TARGET_SIDE}"
+
+    def test_a_parent_run_id_without_room_for_the_suffix_is_refused(self):
+        """Truncating the parent id would let two long parents share a side release."""
+        config = ExecuteTrainConfig(run_id="a" * RUN_ID_MAX_LENGTH)
+
+        with pytest.raises(AssertionError):
+            scenario._config_for_comparison_side(TARGET_SIDE, config)
 
 
 class TestTiming:
