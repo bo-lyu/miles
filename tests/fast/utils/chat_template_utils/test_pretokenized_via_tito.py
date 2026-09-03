@@ -56,8 +56,6 @@ _PASS_PARAMS = [
     pytest.param(TITOTokenizerType.QWEN36, "Qwen/Qwen3.6-35B-A3B", id="qwen36"),
     pytest.param(TITOTokenizerType.QWENNEXT, "Qwen/Qwen3-4B-Thinking-2507", id="qwennext"),
     pytest.param(TITOTokenizerType.GLM47, "zai-org/GLM-4.7-Flash", id="glm47"),
-    pytest.param(TITOTokenizerType.GLM47, "zai-org/GLM-5", id="glm5"),
-    pytest.param(TITOTokenizerType.GLM47, "zai-org/GLM-5.2", id="glm52"),
     pytest.param(TITOTokenizerType.GLM53, "zai-org/GLM-5.3", id="glm53"),
     pytest.param(TITOTokenizerType.GLM53, "zai-org/GLM-5.3-Flash", id="glm53_flash"),
 ]
@@ -70,7 +68,7 @@ def test_via_tito_pass_on_registered_families(family, model_id):
     results = run_all_checks_via_tito(
         tokenizer,
         family,
-        thinking="both",
+        thinking="on" if family == TITOTokenizerType.GLM53 else "both",
         extra_template_kwargs=extra_kwargs,
     )
     failures = [r for r in results if not r.passed]

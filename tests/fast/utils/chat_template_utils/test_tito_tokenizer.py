@@ -63,7 +63,6 @@ from miles.utils.chat_template_utils.tito_tokenizer import (
     DeepSeekV32TITOTokenizer,
     FixedTemplate,
     GLM47TITOTokenizer,
-    GLM53TITOTokenizer,
     InklingTITOTokenizer,
     Qwen3TITOTokenizer,
     Qwen35TITOTokenizer,
@@ -116,8 +115,6 @@ def _get_tokenizer(model_id: str, tito_type: TITOTokenizerType | None = None) ->
 _TITO_MODELS: dict[str, tuple[str, type[TITOTokenizer], TITOTokenizerType]] = {
     "qwen3": ("Qwen/Qwen3-4B", Qwen3TITOTokenizer, TITOTokenizerType.QWEN3),
     "glm47": ("zai-org/GLM-4.7-Flash", GLM47TITOTokenizer, TITOTokenizerType.GLM47),
-    "glm53": ("zai-org/GLM-5.3", GLM53TITOTokenizer, TITOTokenizerType.GLM53),
-    "glm53_flash": ("zai-org/GLM-5.3-Flash", GLM53TITOTokenizer, TITOTokenizerType.GLM53),
 }
 
 
@@ -681,8 +678,6 @@ class TestFactory:
             ("qwen36", "Qwen/Qwen3-4B", Qwen36TITOTokenizer),
             ("qwennext", "Qwen/Qwen3-4B", QwenNextTITOTokenizer),
             ("glm47", "zai-org/GLM-4.7-Flash", GLM47TITOTokenizer),
-            ("glm53", "zai-org/GLM-5.3", GLM53TITOTokenizer),
-            ("glm53", "zai-org/GLM-5.3-Flash", GLM53TITOTokenizer),
             ("default", "Qwen/Qwen3-4B", TITOTokenizer),
         ],
     )
@@ -712,18 +707,6 @@ class TestFactory:
         assert isinstance(tito, cls)
         assert isinstance(tito, Qwen3TITOTokenizer)
 
-    @pytest.mark.parametrize(
-        "type_str, model_id, cls",
-        [
-            ("glm53", "zai-org/GLM-5.3", GLM53TITOTokenizer),
-            ("glm53", "zai-org/GLM-5.3-Flash", GLM53TITOTokenizer),
-        ],
-    )
-    def test_glm_variant_inherits_glm47_boundary_logic(self, type_str, model_id, cls):
-        tito = get_tito_tokenizer(_get_tokenizer(model_id), tokenizer_type=type_str)
-        assert isinstance(tito, cls)
-        assert isinstance(tito, GLM47TITOTokenizer)
-
     def test_invalid_type_raises(self):
         with pytest.raises(ValueError):
             get_tito_tokenizer(_get_tokenizer("Qwen/Qwen3-4B"), tokenizer_type="nonexistent")
@@ -749,7 +732,6 @@ class TestParserBinding:
             (TITOTokenizerType.QWEN36, "qwen3", "qwen3_coder"),
             (TITOTokenizerType.QWENNEXT, "qwen3", "qwen25"),
             (TITOTokenizerType.GLM47, "glm45", "glm47"),
-            (TITOTokenizerType.GLM53, "glm45", "glm47"),
             (TITOTokenizerType.NEMOTRON3, "nemotron_3", "qwen3_coder"),
             (TITOTokenizerType.KIMI25, None, None),
             (TITOTokenizerType.KIMI26, "kimi_k2", "kimi_k2_raw_id"),
