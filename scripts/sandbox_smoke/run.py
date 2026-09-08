@@ -89,11 +89,60 @@ async def _run_harbor(tasks_dir: Path, task: str, *, backend: str, agent: str, b
     )
 
 
-def _run_openenv(tasks_dir: Path, task: str, *, backend: str, agent: str, base_url: str) -> Any:
-    raise NotImplementedError(
-        "the openenv connector is not wired into this driver yet; its golden episode "
-        "lives in examples/experimental/openenv/scan_golden.py until then"
-    )
+async def _run_openenv(tasks_dir: Path, task: str, *, backend: str, agent: str, base_url: str) -> dict[str, Any]:
+    """One golden replay through examples/experimental/openenv/openenv_sandbox_common.
+
+    Only the golden path is wired here: a harness episode goes through
+    openenv_agent_function.run_for_training, whose exit_status vocabulary
+    (pre-#2802: "completed" / "timeout") this driver's PASS check does not
+    recognize yet -- wire it once #2802 lands and openenv_agent_function speaks
+    "Submitted" the way harbor_agent_function already does.
+    """
+    if agent != GOLDEN:
+        raise NotImplementedError(
+            f"the openenv connector only runs {GOLDEN!r} for now: a harness episode needs "
+            "#2802's exit_status vocabulary in openenv_agent_function first"
+        )
+
+    openenv_dir = REPO / "examples" / "experimental" / "openenv"
+    sys.path.insert(0, str(openenv_dir))
+    try:
+        import openenv_sandbox_common as sandbox_common
+    except ImportError as e:
+        raise SystemExit(f"{e}\nopenenv is not importable in this environment; see {openenv_dir / 'README.md'}") from e
+
+    try:
+        sandbox_backend = sandbox_common.load_backend(backend)
+    except ValueError as e:
+        raise SystemExit(str(e)) from e
+    except ImportError as e:
+        raise SystemExit(
+            f"{e}\nthe {backend} sandbox SDK is not importable in this environment; see {openenv_dir / 'README.md'}"
+        ) from e
+
+    os.environ["OPENENV_TB2_TASKS_DIR"] = str(tasks_dir)
+    trial_timeout_s = int(os.environ.get("AGENT_TRIAL_TIMEOUT", _DEFAULT_TRIAL_TIMEOUT_S))
+    try:
+        m = await asyncio.wait_for(
+            sandbox_common.run_golden_episode(sandbox_backend, tasks_dir, task), timeout=trial_timeout_s
+        )
+    except asyncio.TimeoutError:
+        return _openenv_failed("TimeLimitExceeded")
+
+    reward = m.get("reward")
+    metrics = {k: v for k, v in m.items() if k != "reward"}
+    if reward is None:
+        return _openenv_result(0.0, "AgentError", metrics)
+    return _openenv_result(float(reward), "Submitted", metrics)
+
+
+def _openenv_result(reward: float, exit_status: str, agent_metrics: dict[str, Any]) -> dict[str, Any]:
+    """The schema every connector in this driver returns."""
+    return {"reward": reward, "exit_status": exit_status, "eval_report": {}, "agent_metrics": agent_metrics}
+
+
+def _openenv_failed(exit_status: str) -> dict[str, Any]:
+    return _openenv_result(0.0, exit_status, {})
 
 
 # connector name -> (tasks_dir, task, backend=, agent=, base_url=) -> result dict

@@ -24,6 +24,7 @@ import logging
 import sys
 import threading
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import openenv_agent_function as oaf
 import openenv_sandbox_common as common
@@ -276,6 +277,70 @@ def test_cancel_during_create_reaps_orphaned_sandbox(monkeypatch):
 
     asyncio.run(scenario())
     assert closed.wait(5)  # the reaper closed the orphan
+
+
+# --- golden replay -----------------------------------------------------------
+
+
+def _write_solution(tasks_dir: Path, task_id: str) -> None:
+    """A minimal on-disk solution/ dir: run_golden_episode only tars its contents."""
+    sol = tasks_dir / task_id / "solution"
+    sol.mkdir(parents=True)
+    (sol / "solve.sh").write_text("#!/bin/sh\necho solved\n")
+
+
+def test_run_golden_episode_stages_solves_and_scores(monkeypatch, tmp_path):
+    """The staged-solution exec(s) precede solve.sh, which precedes evaluate; a
+    canonical verdict comes back as the raw reward."""
+    monkeypatch.setattr(oaf, "load_tbench2", lambda: _CLASSES)
+    _write_solution(tmp_path, "fix-git")
+    backend = _backend()
+    backend.episode_env = _fake_episode_env
+
+    m = asyncio.run(common.run_golden_episode(backend, tmp_path, "fix-git"))
+
+    actions = _FakeEnv.last_actions
+    execs = [a for a in actions if a.action_type == "exec"]
+    solve_idx = next(i for i, a in enumerate(execs) if "solve.sh" in (a.command or ""))
+    assert solve_idx > 0  # the solution was staged before solve.sh ran
+    assert any(a.action_type == "evaluate" for a in actions)
+    assert m["reward"] == 1.0
+    assert "error" not in m
+
+
+def test_run_golden_episode_reports_no_verdict_as_an_error_not_a_zero(monkeypatch, tmp_path):
+    """Same no-verdict guard as the policy-driven loop: an eval failure is an
+    error the caller can distinguish from a genuine 0, not a false negative."""
+
+    class _EvalErrorEnv(_FakeEnv):
+        async def step(self, action):
+            if action.action_type == "evaluate":
+                self.actions.append(action)
+                res = _FakeResult()
+                res.observation.error = "toolkit timeout"
+                return res
+            return await super().step(action)
+
+    monkeypatch.setattr(oaf, "load_tbench2", lambda: {"env": _EvalErrorEnv, "action": _CLASSES["action"]})
+    _write_solution(tmp_path, "fix-git")
+    backend = _backend()
+    backend.episode_env = _fake_episode_env
+
+    m = asyncio.run(common.run_golden_episode(backend, tmp_path, "fix-git"))
+
+    assert m["reward"] is None
+    assert "no canonical verdict" in m["error"]
+
+
+def test_run_golden_episode_captures_logs_only_below_a_perfect_score(monkeypatch, tmp_path):
+    monkeypatch.setattr(oaf, "load_tbench2", lambda: _CLASSES)
+    _write_solution(tmp_path, "fix-git")
+    backend = _backend()
+    backend.episode_env = _fake_episode_env
+
+    m = asyncio.run(common.run_golden_episode(backend, tmp_path, "fix-git", capture_logs=True))
+    assert m["reward"] == 1.0
+    assert "solve_log_tail" not in m  # a perfect score needs no attribution
 
 
 # --- throttle-text classification -------------------------------------------

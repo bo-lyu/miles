@@ -11,10 +11,18 @@ above it (harness, session server, training).
 
 | flag | values | notes |
 | --- | --- | --- |
-| `--connector` | `harbor`, (`openenv` next) | which integration carries the episode |
+| `--connector` | `harbor`, `openenv` | which integration carries the episode |
 | `--backend` | `e2b`, `daytona`, `modal`, ... | passed through; the connector validates |
-| `--agent` | `golden` (default), or a harness name | a harness needs `--base-url`: a live session-server URL for full token fidelity, or any OpenAI-compatible endpoint when only the harness↔sandbox plumbing is under test — but never a third-party model API, which cannot sit behind the session server and so proves nothing about the training path |
+| `--agent` | `golden` (default), or a harness name | a harness needs `--base-url`: a live session-server URL for full token fidelity, or any OpenAI-compatible endpoint when only the harness↔sandbox plumbing is under test — but never a third-party model API, which cannot sit behind the session server and so proves nothing about the training path. **openenv only runs `golden` for now** (see below) |
 | `--benchmark` | `tb2` (default) | Terminal-Bench-2, cloned on first use; `TB2_TASKS_DIR` points at an existing checkout, `--task` overrides the preset `fix-git` instance |
+
+The `openenv` connector's golden path replays the task's own `solution/solve.sh`
+in a fresh per-episode sandbox via `openenv_sandbox_common.run_golden_episode`
+(shared with `examples/experimental/openenv/scan_golden.py`'s sweep, so the two
+never drift). A harness agent isn't wired for `openenv` yet: its training path
+(`openenv_agent_function.run_for_training`) still reports the pre-#2802
+`exit_status` vocabulary (`"completed"`/`"timeout"`), which this driver's PASS
+check does not recognize — wiring it waits on #2802.
 
 TB2 task directories are native Harbor tasks carrying prebuilt official
 images, so a checkout is directly usable and no image is built from a
@@ -31,6 +39,11 @@ mkdir -p ~/.config/e2b && echo e2b_... > ~/.config/e2b/api_key
 # self-hosted E2B-compatible endpoint instead of E2B Cloud:
 # export E2B_API_URL=http://<server>:8000 E2B_SANDBOX_URL=http://<server>:8000
 python scripts/sandbox_smoke/run.py --connector harbor --backend e2b
+
+# openenv needs the backend's own SDK, not harbor's (pip install e2b; the
+# other backends' sdk_hint is in miles/rollout/agentic/credentials.py)
+pip install e2b
+python scripts/sandbox_smoke/run.py --connector openenv --backend e2b
 ```
 
 Other backends follow the same key-file contract (`DAYTONA_API_KEY` /
